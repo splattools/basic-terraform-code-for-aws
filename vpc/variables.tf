@@ -1,5 +1,16 @@
 variable "region" {
   type        = string
+  description = "AWS region"
+}
+
+variable "project" {
+  type        = string
+  description = "Project name for resource tagging"
+}
+
+variable "environment" {
+  type        = string
+  description = "Environment name for resource tagging"
 }
 
 variable "vpc" {
