@@ -1,38 +1,76 @@
-region = "ap-northeast-1"
+region      = "ap-northeast-1"
+project     = "myapp"
+environment = "dev"
 
-s3_buckets = {
-  bucket001 = {
-    bucket_name = "tazima202512151"
-    versioning  = true
-    acl         = "private"
-    encription = {
-      sse_algorithm      = "AES256"
-      kms_master_key_id  = ""
-      bucket_key_enabled = false
-    }
+cluster = {
+  name               = "main"
+  container_insights = true
+  capacity_providers = ["FARGATE", "FARGATE_SPOT"]
+  tags = {
+    Service = "main-cluster"
+  }
+}
 
-    object_ownership = "BucketOwnerPreferred"
-
-    bucket_policy = <<EOF
+task_definition = {
+  family               = "web-app"
+  cpu                  = "256"
+  memory               = "512"
+  execution_role_name  = "ecs-task-execution-role"
+  task_role_name      = "ecs-task-role"
+  containers = [
     {
-      "Version": "2012-10-17",
-      "Statement": [
+      name      = "app"
+      image     = "021891603556.dkr.ecr.ap-northeast-1.amazonaws.com/nginx:latest"
+      cpu       = 256
+      memory    = 512
+      essential = true
+      port_mappings = [
         {
-          "Effect": "Allow",
-          "Principal": "*",
-          "Action": [
-            "s3:GetObject",
-            "s3:PutBucketPolicy"
-          ],
-          "Resource": "arn:aws:s3:::tazima202512151/*"
+          container_port = 80
+          host_port     = 80
+          protocol      = "tcp"
         }
       ]
+      log_configuration = {
+        logDriver = "awslogs"
+        options = {
+          "awslogs-group"         = "/ecs/web-app"
+          "awslogs-region"        = "ap-northeast-1"
+          "awslogs-stream-prefix" = "app"
+        }
+      }
     }
-    EOF
+  ]
+  tags = {
+    Service = "web-app"
+  }
+}
 
-    tags = {
-      Name        = "my-bucket-001"
-      Environment = "dev"
+service = {
+  name           = "web-app"
+  desired_count  = 2
+  force_new_deployment = true
+  enable_execute_command = true
+  deployment_configuration = {
+    maximum_percent         = 200
+    minimum_healthy_percent = 100
+    deployment_circuit_breaker = {
+      enable   = true
+      rollback = true
     }
+  }
+  network_configuration = {
+    vpc_name            = "main-vpc"
+    subnet_names        = ["private-subnet-1a", "private-subnet-1c"]
+    security_group_names = ["ecs-service-sg"]
+    assign_public_ip   = false
+  }
+  load_balancer = {
+    target_group_name = "web-app-tg"
+    container_name    = "app"
+    container_port    = 80
+  }
+  tags = {
+    Service = "web-app"
   }
 }
